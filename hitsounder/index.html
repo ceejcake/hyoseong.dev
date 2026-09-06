@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MIDI to osu! hitsound map</title>
+<style>
+  :root {
+    --bg: #f8f9fa;
+    --card-bg: #ffffff;
+    --text: #212529;
+    --muted: #6c757d;
+    --border: #dee2e6;
+    --subtle-bg: #f1f3f5;
+    --accent: #0d6efd;
+    --accent-hover: #0b5ed7;
+    --error: #dc3545;
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  header { margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600; }
+  p { margin: 0 0 12px; color: var(--muted); }
+  
+  section {
+    border: 1px solid var(--border);
+    padding: 20px;
+    margin-bottom: 20px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab {
+    background: var(--subtle-bg);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    font: inherit;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+  }
+  .tab[aria-selected=true] {
+    background: var(--card-bg);
+    font-weight: 600;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .pane[hidden] { display: none; }
+  
+  #drop {
+    border: 2px dashed var(--border);
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--subtle-bg);
+    border-radius: var(--radius);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  #drop.hot { border-color: var(--accent); background: #e7f1ff; }
+  #file { display: none; }
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    border: 1px solid var(--border);
+    padding: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+  }
+  
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  label.f { display: block; }
+  label.f .lbl { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  input[type=text], input[type=number], select {
+    width: 100%;
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    font: inherit;
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+  }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .checks { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+  .checks label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  
+  button {
+    font: inherit;
+    padding: 6px 12px;
+    cursor: pointer;
+    background: var(--subtle-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+  }
+  button:hover { background: #e9ecef; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.sm { padding: 3px 8px; font-size: 12px; }
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  
+  #rollCard, #diagCard, #conflictCard, #readbackCard { display: none; }
+  
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; margin-top: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+  th:last-child, td:last-child { border-right: none; }
+  tr:last-child td { border-bottom: none; }
+  th { background: var(--subtle-bg); font-weight: 600; }
+  td.ts { font-weight: 600; width: 80px; }
+  td.num { font-family: monospace; }
+  tr.miss { background: #fff5f5; }
+  
+  .sndchip { display: inline-block; background: var(--subtle-bg); border: 1px solid var(--border); padding: 2px 6px; margin: 1px; font-size: 11px; border-radius: var(--radius-sm); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { border: 1px solid var(--border); padding: 3px 8px; font-size: 11px; background: var(--subtle-bg); border-radius: 12px; }
+  .chip.used { border-color: #198754; color: #198754; font-weight: 600; background: #e8f5e9; }
+  .chip.free { border-color: var(--error); color: var(--error); background: #ffebee; }
+  
+  .roll { overflow-x: auto; max-height: 250px; border: 1px solid var(--border); padding: 6px; border-radius: var(--radius-sm); background: var(--card-bg); }
+  .lane { display: flex; align-items: center; height: 20px; border-bottom: 1px solid #f1f3f5; font-size: 11px; }
+  .lane .name { width: 180px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track { position: relative; flex-grow: 1; height: 100%; background: var(--subtle-bg); border-radius: 2px; }
+  .dot { position: absolute; top: 3px; width: 4px; height: calc(100% - 6px); background: var(--accent); border-radius: 2px; }
+  .lane.unused { opacity: 0.4; }
+  
+  .stats { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .stat .v { font-weight: 600; }
+  
+  pre { background: var(--subtle-bg); border: 1px solid var(--border); padding: 10px; font-size: 11px; overflow-x: auto; margin: 0; border-radius: var(--radius-sm); }
+  
+  .msg { padding: 8px 12px; border: 1px solid; margin-top: 12px; font-size: 12px; display: none; border-radius: var(--radius-sm); }
+  .msg.err { display: block; background: #ffebee; border-color: #ffcdd2; color: var(--error); }
+  .msg.warn { display: block; background: #fff8e1; border-color: #ffe082; color: #8c6d00; }
+  .msg.ok { display: block; background: #e8f5e9; border-color: #c8e6c9; color: #2e7d32; }
+  
+  details { margin-top: 10px; font-size: 12px; }
+  summary { cursor: pointer; color: var(--muted); }
+  footer { margin-top: 32px; font-size: 11px; color: var(--muted); text-align: center; border-top: 1px solid var(--border); padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>MIDI to osu! hitsound map</h1>
+  <p>Load a MIDI file and convert its notes to osu! hitsounds in the center of the playfield.</p>
+</header>
+
+<section>
+  <h2>1. Load the notes</h2>
+  <div class="tabs" role="tablist">
+    <button class="tab" id="tabFile" role="tab" aria-selected="true">MIDI file</button>
+    <button class="tab" id="tabText" role="tab" aria-selected="false">Paste text</button>
+  </div>
+
+  <div class="pane" id="paneFile">
+    <div id="drop" tabindex="0" role="button">
+      <strong id="dropTitle">Drop a .mid file here</strong>
+      <span id="dropSub">or click to browse</span>
+    </div>
+    <input type="file" id="file" accept=".mid,.midi,audio/midi">
+  </div>
+
+  <div class="pane" id="paneText" hidden>
+    <textarea id="textIn" spellcheck="false" placeholder="Paste midicsv output or lines formatted as: time_in_ms, note (e.g. 500, G4)"></textarea>
+    <div class="actions">
+      <button id="readText">Read pasted notes</button>
+    </div>
+  </div>
+  <div class="msg" id="msg"></div>
+</section>
+
+<section id="diagCard">
+  <h2>2. What was read</h2>
+  <pre id="diag"></pre>
+  <div class="chips" id="chips"></div>
+</section>
+
+<section>
+  <h2>3. Timing</h2>
+  <div class="checks">
+    <label><input type="radio" name="tsrc" id="tsMap" value="map" checked> Use MIDI tempo map</label>
+    <label><input type="radio" name="tsrc" id="tsFixed" value="fixed"> Use fixed BPM</label>
+  </div>
+  <div class="grid">
+    <label class="f"><span class="lbl">BPM</span><input type="number" id="mBpm" step="0.001" value="120">
+      <div class="hint" id="bpmHint">Read from MIDI.</div></label>
+    <label class="f"><span class="lbl">Offset (ms)</span><input type="number" id="mOffset" step="1" value="0"></label>
+    <label class="f"><span class="lbl">Ticks / Quarter</span><input type="number" id="mPPQ" min="1" step="1" value="96">
+      <div class="hint" id="ppqHint">Header value.</div></label>
+    <label class="f"><span class="lbl">Speed Multiplier</span><input type="number" id="mScale" step="0.001" value="1"></label>
+  </div>
+  <div class="msg" id="msgTime"></div>
+</section>
+
+<section>
+  <h2>4. Pitch Mapping</h2>
+  <div class="actions">
+    <button class="sm" data-shiftmap="-12">-12</button>
+    <button class="sm" data-shiftmap="-1">-1</button>
+    <button class="sm" data-shiftmap="1">+1</button>
+    <button class="sm" data-shiftmap="12">+12</button>
+    <button id="autoFit">Fit to notes</button>
+    <button id="resetMap">Reset</button>
+  </div>
+  <table>
+    <thead><tr><th>Hitsound</th><th>MIDI note</th><th>Count</th><th>Parameters</th></tr></thead>
+    <tbody id="mapTable"></tbody>
+  </table>
+  <div class="msg" id="msgMap"></div>
+</section>
+
+<section id="conflictCard">
+  <h2>Stacked circles</h2>
+  <div style="max-height:200px;overflow-y:auto;border-radius:var(--radius-sm);overflow:hidden;">
+    <table>
+      <thead><tr><th>Time</th><th>ms</th><th>Hitsounds</th></tr></thead>
+      <tbody id="conflictTable"></tbody>
+    </table>
+  </div>
+  <div class="grid" style="margin-top:10px">
+    <label class="f"><span class="lbl">Conflict Channel</span><input type="number" id="chConflict" min="1" max="16" value="2"></label>
+    <label class="f"><span class="lbl">Unmapped Channel</span><input type="number" id="chUnmapped" min="1" max="16" value="3"></label>
+  </div>
+  <div class="actions">
+    <button id="markMidi">Download Marked MIDI</button>
+    <button id="copyConflicts">Copy Timestamps</button>
+    <span class="hint" id="copyHint"></span>
+  </div>
+</section>
+
+<section id="rollCard">
+  <h2>5. Visual Preview</h2>
+  <div class="roll" id="roll"></div>
+  <div class="stats">
+    <div class="stat">Notes: <span class="v" id="sNotes">0</span></div>
+    <div class="stat">Circles: <span class="v" id="sObjs">0</span></div>
+    <div class="stat">BPM: <span class="v" id="sBpm">—</span></div>
+    <div class="stat">Length: <span class="v" id="sLen">—</span></div>
+  </div>
+  <div class="msg" id="msg2"></div>
+</section>
+
+<section>
+  <h2>6. Output Options</h2>
+  <div class="grid">
+    <label class="f"><span class="lbl">Sample Index</span><input type="number" id="mIndex" min="0" max="99" value="0"></label>
+    <label class="f"><span class="lbl">Fallback Hitnormal</span>
+      <select id="mFallback">
+        <option value="1" selected>normal</option>
+        <option value="2">soft</option>
+        <option value="3">drum</option>
+      </select>
+    </label>
+  </div>
+  <div class="msg" id="msgFallback"></div>
+  <div class="checks">
+    <label><input type="checkbox" id="optMerge" checked> Merge simultaneous notes</label>
+    <label><input type="checkbox" id="optStagger"> Stagger stacked circles by 1ms</label>
+  </div>
+  <div class="actions">
+    <button id="go" disabled>Copy Hit Objects</button>
+    <button id="showRaw">Toggle Raw Text</button>
+    <span class="hint" id="goHint">Load notes first.</span>
+  </div>
+  <textarea id="raw" spellcheck="false" readonly hidden style="margin-top:10px"></textarea>
+  <div class="msg" id="msgOut"></div>
+</section>
+
+<section id="readbackCard">
+  <h2>7. Output Readback</h2>
+  <div style="max-height:250px;overflow-y:auto;border-radius:var(--radius-sm);overflow:hidden;">
+    <table>
+      <thead><tr><th>Time</th><th>Line</th><th>Plays</th><th>From</th></tr></thead>
+      <tbody id="readbackTable"></tbody>
+    </table>
+  </div>
+  <div class="hint" id="readbackHint" style="margin-top:5px"></div>
+</section>
+
+<footer>Coordinates hardcoded to x:256, y:192. Client-side execution only.</footer>
+</div>
+
+<script>
+/* ---------- constants ---------- */
+const NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const SETNAME = {1:"normal",2:"soft",3:"drum"};
+const BITNAME = {0:"hitnormal",2:"whistle",4:"finish",8:"clap"};
+
+const BASE = [
+  {id:"a", def:67, label:"normal-hitclap",    set:1, bit:8},
+  {id:"b", def:63, label:"soft-hitclap",      set:2, bit:8},
+  {id:"c", def:61, label:"drum-hitclap",      set:3, bit:8},
+  {id:"d", def:60, label:"drum-hitfinish",    set:3, bit:4},
+  {id:"e", def:59, label:"normal-hitfinish",  set:1, bit:4},
+  {id:"f", def:58, label:"soft-hitnormal",    set:2, bit:0},
+  {id:"g", def:57, label:"soft-hitfinish",    set:2, bit:4},
+  {id:"h", def:54, label:"soft-hitwhistle",   set:2, bit:2},
+  {id:"i", def:52, label:"drum-hitnormal",    set:3, bit:0},
+  {id:"j", def:50, label:"normal-hitnormal",  set:1, bit:0},
+  {id:"k", def:49, label:"drum-hitwhistle",   set:3, bit:2},
+  {id:"l", def:48, label:"normal-hitwhistle", set:1, bit:2},
+];
+let MAP = BASE.map(m => ({...m, midi: m.def}));
+
+const sci = n => `${NAMES[((n%12)+12)%12]}${Math.floor(n/12)-1}`;
+const fl  = n => `${NAMES[((n%12)+12)%12]}${Math.floor(n/12)}`;
+const byMidi = () => Object.fromEntries(MAP.map(m=>[m.midi,m]));
+
+/* ---------- MIDI parsing ---------- */
+function closeNote(active, ch, key, tick){
+  const ak = (ch << 8) | key;
+  const list = active[ak];
+  if (list && list.length){
+    const n = list.shift();
+    if (n.dur === null) n.dur = Math.max(1, tick - n.tick);
+  }
+}
+
+function parseMidi(buf){
+  const v = new DataView(buf); let p = 0;
+  const str = n => { let s=""; for(let i=0;i<n;i++) s+=String.fromCharCode(v.getUint8(p++)); return s; };
+  if (str(4) !== "MThd") throw new Error("Header tag invalid.");
+  const hlen = v.getUint32(p); p+=4;
+  const format = v.getUint16(p); p+=2;
+  const ntrks  = v.getUint16(p); p+=2;
+  const div    = v.getInt16(p);  p+=2;
+  p += hlen - 6;
+
+  let tpq = 480, smpte = null;
+  if (div > 0) tpq = div; else { smpte = (-(div>>8)) * (div & 0xFF); }
+
+  const notes = [], tempos = [], trackInfo = [];
+
+  for (let t = 0; t < ntrks; t++){
+    if (p + 8 > buf.byteLength) break;
+    const id = str(4);
+    const len = v.getUint32(p); p += 4;
+    const end = Math.min(p + len, buf.byteLength);
+    if (id !== "MTrk"){ p = end; continue; }
+
+    let tick = 0, running = 0, count = 0, name = "";
+    const active = {};
+    while (p < end){
+      let d = 0, b;
+      do { b = v.getUint8(p++); d = (d<<7) | (b & 0x7F); } while (b & 0x80 && p < end);
+      tick += d;
+      if (p >= end) break;
+
+      let status = v.getUint8(p);
+      if (status & 0x80){ p++; running = status; } else { status = running; }
+      const type = status & 0xF0;
+
+      if (status === 0xFF){
+        const meta = v.getUint8(p++);
+        let l = 0; do { b = v.getUint8(p++); l = (l<<7) | (b & 0x7F); } while (b & 0x80);
+        if (meta === 0x51 && l === 3){
+          tempos.push({tick, us: (v.getUint8(p)<<16) | (v.getUint8(p+1)<<8) | v.getUint8(p+2)});
+        } else if (meta === 0x03){
+          for (let i=0;i<l;i++) name += String.fromCharCode(v.getUint8(p+i));
+        } else if (meta === 0x2F){ p += l; break; }
+        p += l;
+      } else if (status === 0xF0 || status === 0xF7){
+        let l = 0; do { b = v.getUint8(p++); l = (l<<7) | (b & 0x7F); } while (b & 0x80);
+        p += l;
+      } else if (type === 0x90){
+        const key = v.getUint8(p), vel = v.getUint8(p+1); p += 2;
+        if (vel > 0){
+          const n = {tick, key, vel, dur: null, ch: status & 0x0F};
+          notes.push(n); count++;
+          const ak = ((status & 0x0F) << 8) | key;
+          if (!active[ak]) active[ak] = [];
+          active[ak].push(n);
+        } else {
+          closeNote(active, status & 0x0F, key, tick);
+        }
+      } else if (type === 0x80){
+        const key = v.getUint8(p); p += 2;
+        closeNote(active, status & 0x0F, key, tick);
+      } else if (type === 0xA0 || type === 0xB0 || type === 0xE0){ p += 2; }
+      else if (type === 0xC0 || type === 0xD0){ p += 1; }
+      else { p = end; break; }
+    }
+    trackInfo.push({index:t, name:name.trim(), notes:count});
+    p = end;
+  }
+
+  tempos.sort((a,b)=>a.tick-b.tick);
+  notes.sort((a,b)=>a.tick-b.tick);
+  const fallbackDur = Math.max(1, Math.round(tpq / 4));
+  notes.forEach((n, i) => { if (!n.dur) n.dur = fallbackDur; n.index = i; });
+  return {format, ntrks, tpq, smpte, division:div, notes, tempos, trackInfo};
+}
+
+/* ---------- text / CSV import ---------- */
+function nameToMidi(s){
+  const m = /^([A-Ga-g])([#b]?)(-?\d+)$/.exec(s.trim());
+  if (!m) return null;
+  const base = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1].toUpperCase()];
+  const acc = m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0;
+  return base + acc + (parseInt(m[3]) + 1) * 12;
+}
+
+function parseText(txt){
+  const lines = txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const isCsv = lines.some(l => /,\s*Note_on_c\s*,/i.test(l));
+
+  if (isCsv){
+    let tpq = 480; const notes = [], tempos = [];
+    for (const l of lines){
+      const f = l.split(",").map(x=>x.trim());
+      const kind = (f[2]||"").toLowerCase();
+      if (kind === "header") tpq = parseInt(f[5]) || tpq;
+      else if (kind === "tempo") tempos.push({tick:parseInt(f[1]), us:parseInt(f[3])});
+      else if (kind === "note_on_c" && parseInt(f[5]) > 0) notes.push({tick:parseInt(f[1]), key:parseInt(f[4])});
+    }
+    if (!notes.length) throw new Error("No active note_on_c entries.");
+    tempos.sort((a,b)=>a.tick-b.tick); notes.sort((a,b)=>a.tick-b.tick);
+    return {format:0, ntrks:1, tpq, smpte:null, division:tpq, notes, tempos, trackInfo:[{index:0,name:"csv",notes:notes.length}], preMs:false};
+  }
+
+  const notes = []; let bad = 0;
+  for (const l of lines){
+    if (/^[a-z_#\/]/i.test(l) && !/^[A-G][#b]?-?\d/.test(l)) { continue; }
+    const f = l.split(/[,;\t]+|\s{1,}/).filter(Boolean);
+    if (f.length < 2){ bad++; continue; }
+    const ms = parseFloat(f[0]);
+    let key = /^-?\d+$/.test(f[1]) ? parseInt(f[1]) : nameToMidi(f[1]);
+    if (!isFinite(ms) || key === null || !isFinite(key)){ bad++; continue; }
+    notes.push({tick:ms, key});
+  }
+  if (!notes.length) throw new Error("Text parsing returned zero valid note lines.");
+  notes.sort((a,b)=>a.tick-b.tick);
+  return {format:0, ntrks:1, tpq:1, smpte:null, division:1, notes, tempos:[], trackInfo:[{index:0,name:"text",notes:notes.length}], preMs:true, badLines:bad};
+}
+
+/* ---------- time conversion ---------- */
+function makeClock(mid, bpm, useMap, tpq){
+  if (mid.preMs) return t => t;
+  if (mid.smpte) return t => t / mid.smpte * 1000;
+  let list = (useMap ? mid.tempos : []).slice();
+  if (!list.length) list = [{tick:0, us: 60000000 / bpm}];
+  if (list[0].tick > 0) list.unshift({tick:0, us:list[0].us});
+  const marks = []; let ms = 0;
+  for (let i = 0; i < list.length; i++){
+    if (i > 0) ms += (list[i].tick - list[i-1].tick) * (list[i-1].us / 1000 / tpq);
+    marks.push({tick:list[i].tick, ms, us:list[i].us});
+  }
+  return tick => {
+    let m = marks[0];
+    for (const x of marks){ if (x.tick <= tick) m = x; else break; }
+    return m.ms + (tick - m.tick) * (m.us / 1000 / tpq);
+  };
+}
+
+/* ---------- hit objects ---------- */
+function buildObjects(events, merge, fallbackSet){
+  fallbackSet = fallbackSet || 1;
+  const groups = new Map();
+  for (const e of events){
+    const k = merge ? Math.round(e.time) : `${Math.round(e.time)}#${e.entry.midi}`;
+    if (!groups.has(k)) groups.set(k, {time: Math.round(e.time), entries: []});
+    groups.get(k).entries.push(e.entry);
+  }
+
+  const objs = [], conflicts = [];
+  for (const g of [...groups.values()].sort((a,b)=>a.time-b.time)){
+    const additions = new Map();
+    const normals = new Map();
+    for (const en of g.entries){
+      if (en.bit === 0){
+        if (!normals.has(en.set)) normals.set(en.set, []);
+        normals.get(en.set).push(en.label);
+      } else {
+        if (!additions.has(en.set)) additions.set(en.set, {bits:0, labels:[]});
+        const a = additions.get(en.set);
+        a.bits |= en.bit; a.labels.push(en.label);
+      }
+    }
+
+    const slots = [...additions.entries()].sort((a,b)=>a[0]-b[0])
+      .map(([set,a]) => ({time:g.time, normalSet:null, addSet:set, hitSound:a.bits, labels:a.labels.slice()}));
+
+    for (const ns of [...normals.keys()].sort((a,b)=>a-b)){
+      const labels = normals.get(ns);
+      const slot = slots.find(s => s.normalSet === null && s.addSet === ns)
+                || slots.find(s => s.normalSet === null);
+      if (slot){ slot.normalSet = ns; slot.labels.push(...labels); }
+      else slots.push({time:g.time, normalSet:ns, addSet:0, hitSound:0, labels:labels.slice()});
+    }
+
+    for (const s of slots) if (s.normalSet === null) s.normalSet = fallbackSet;
+    if (slots.length > 1) conflicts.push({time:g.time, slots: slots.map(s=>({...s}))});
+    objs.push(...slots);
+  }
+  return {objs, conflicts};
+}
+
+/* ---------- MIDI export writer ---------- */
+function vlqBytes(n){
+  const out = [n & 0x7F];
+  n >>= 7;
+  while (n > 0){ out.unshift((n & 0x7F) | 0x80); n >>= 7; }
+  return out;
+}
+
+function writeMidi(mid, channelFor){
+  const evs = [];
+  for (const t of mid.tempos)
+    evs.push({tick:t.tick, order:0, bytes:[0xFF,0x51,0x03,(t.us>>16)&0xFF,(t.us>>8)&0xFF,t.us&0xFF]});
+  for (const n of mid.notes){
+    const ch = Math.max(0, Math.min(15, channelFor(n)));
+    evs.push({tick:n.tick, order:2, bytes:[0x90|ch, n.key, n.vel || 100]});
+    evs.push({tick:n.tick + (n.dur || 24), order:1, bytes:[0x80|ch, n.key, 0]});
+  }
+  evs.sort((a,b) => a.tick - b.tick || a.order - b.order);
+
+  const body = [];
+  let prev = 0;
+  for (const e of evs){
+    body.push(...vlqBytes(e.tick - prev));
+    prev = e.tick;
+    body.push(...e.bytes);
+  }
+  body.push(0x00, 0xFF, 0x2F, 0x00);
+
+  const tpq = mid.tpq;
+  const head = [
+    0x4D,0x54,0x68,0x64, 0,0,0,6, 0,0, 0,1, (tpq>>8)&0xFF, tpq&0xFF,
+    0x4D,0x54,0x72,0x6B,
+    (body.length>>>24)&0xFF, (body.length>>>16)&0xFF, (body.length>>>8)&0xFF, body.length&0xFF,
+  ];
+  return new Uint8Array(head.concat(body));
+}
+
+function flagNotes(events){
+  const groups = new Map();
+  for (const e of events){
+    const k = Math.round(e.time);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(e);
+  }
+  const conflicted = new Set();
+  let stacks = 0;
+  for (const [, list] of groups){
+    const additions = new Set(), normals = new Set();
+    for (const e of list){
+      if (e.entry.bit === 0) normals.add(e.entry.set);
+      else additions.add(e.entry.set);
+    }
+    if (Math.max(additions.size, normals.size) > 1){
+      stacks++;
+      for (const e of list) conflicted.add(e.noteIndex);
+    }
+  }
+  return {conflicted, stacks};
+}
+
+function writeLines(objs, index){
+  return objs.map(o => `256,192,${o.time},1,${o.hitSound},${o.normalSet}:${o.addSet}:${index}:0:`).join("\n");
+}
+
+function decodeLine(line){
+  const f = line.split(",");
+  if (f.length < 6) return {error:"invalid format"};
+  const time = parseInt(f[2]), type = parseInt(f[3]), hs = parseInt(f[4]);
+  const ex = (f[5]||"").split(":");
+  const normalSet = parseInt(ex[0])||0, addSet = parseInt(ex[1])||0, index = parseInt(ex[2])||0;
+  const nSet = normalSet === 0 ? "(timing point)" : SETNAME[normalSet];
+  const aSet = addSet === 0 ? nSet : SETNAME[addSet];
+  const sounds = [`${nSet}-hitnormal`];
+  if (hs & 2) sounds.push(`${aSet}-hitwhistle`);
+  if (hs & 4) sounds.push(`${aSet}-hitfinish`);
+  if (hs & 8) sounds.push(`${aSet}-hitclap`);
+  return {time, type, hs, normalSet, addSet, index, sounds, isCircle: (type & 1) === 1};
+}
+
+/* ---------- UI Execution ---------- */
+const $ = id => document.getElementById(id);
+let state = null, lastConflicts = [];
+
+const say = (el,t,k) => { el.className = "msg " + k; el.textContent = t; };
+const clear = el => { el.className = "msg"; el.textContent = ""; };
+
+function selectTab(which){
+  const f = which === "file";
+  $("tabFile").setAttribute("aria-selected", f);
+  $("tabText").setAttribute("aria-selected", !f);
+  $("paneFile").hidden = !f;
+  $("paneText").hidden = f;
+}
+$("tabFile").addEventListener("click", ()=>selectTab("file"));
+$("tabText").addEventListener("click", ()=>selectTab("text"));
+
+const drop = $("drop"), fileInput = $("file");
+drop.addEventListener("click", ()=>fileInput.click());
+drop.addEventListener("keydown", e => { if(e.key==="Enter"||e.key===" "){e.preventDefault();fileInput.click();} });
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e=>{e.preventDefault();drop.classList.add("hot")}));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e=>{e.preventDefault();drop.classList.remove("hot")}));
+drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+fileInput.addEventListener("change", e => { const f = e.target.files[0]; if (f) loadFile(f); });
+
+function loadFile(file){
+  clear($("msg"));
+  const r = new FileReader();
+  r.onerror = () => say($("msg"), "File read error.", "err");
+  r.onload = () => {
+    let mid;
+    try { mid = parseMidi(r.result); }
+    catch(err){ say($("msg"), err.message, "err"); return; }
+    if (!mid.notes.length){ say($("msg"), "No note data in file.", "err"); return; }
+    $("dropTitle").textContent = file.name;
+    $("dropSub").textContent = "Click to select a different file";
+    adopt(mid);
+  };
+  r.readAsArrayBuffer(file);
+}
+
+$("readText").addEventListener("click", () => {
+  clear($("msg"));
+  let mid;
+  try { mid = parseText($("textIn").value); }
+  catch(err){ say($("msg"), err.message, "err"); return; }
+  adopt(mid);
+  if (mid.badLines) say($("msg"), `${mid.badLines} lines skipped due to syntax errors.`, "warn");
+});
+
+function adopt(mid){
+  state = mid;
+  $("mPPQ").value = mid.tpq;
+  $("ppqHint").textContent = mid.preMs ? "Disabled (Millisecond inputs)" : `PPQ: ${mid.tpq}`;
+  $("mPPQ").disabled = !!(mid.preMs || mid.smpte);
+
+  if (mid.tempos.length){
+    $("mBpm").value = Math.round(60000000 / mid.tempos[0].us * 1000) / 1000;
+    $("tsMap").disabled = false;
+  } else {
+    $("tsFixed").checked = true;
+    $("tsMap").disabled = true;
+  }
+  $("go").disabled = false;
+  $("goHint").textContent = "";
+  suggestFit();
+  refresh();
+}
+
+function suggestFit(){
+  if (!state) return;
+  const score = s => {
+    const set = new Set(BASE.map(m => m.def + s));
+    let hits = 0;
+    for (const n of state.notes) if (set.has(n.key)) hits++;
+    return hits;
+  };
+  const here = score(0);
+  let best = 0, bestHits = here;
+  for (let s = -36; s <= 36; s++){
+    if (BASE.some(m => m.def + s < 0 || m.def + s > 127)) continue;
+    const h = score(s);
+    if (h > bestHits || (h === bestHits && Math.abs(s) < Math.abs(best))){ bestHits = h; best = s; }
+  }
+  const total = state.notes.length;
+  if (here === total) say($("msgMap"), "100% note coverage with current mapping.", "ok");
+  else if (best !== 0 && bestHits > here)
+    say($("msgMap"), `Matched ${here}/${total}. Transposing by ${best>0?"+":""}${best} increases match to ${bestHits}.`, "warn");
+  else if (here < total)
+    say($("msgMap"), `Matched ${here}/${total}. Manual pitch assignment required for full coverage.`, "warn");
+  else clear($("msgMap"));
+}
+
+function drawMap(counts){
+  counts = counts || {};
+  $("mapTable").innerHTML = MAP.map(m => {
+    const c = counts[m.midi] || 0;
+    const tech = m.bit === 0 ? `Set ${SETNAME[m.set]}` : `Set ${SETNAME[m.set]} + ${BITNAME[m.bit]}`;
+    return `<tr class="${state && !c ? "miss" : ""}">
+      <td>${m.label}</td>
+      <td><input class="pitch" type="number" min="0" max="127" step="1" value="${m.midi}" data-map="${m.id}"> ${sci(m.midi)}</td>
+      <td>${state ? c : 0}</td>
+      <td>${tech}</td></tr>`;
+  }).join("");
+  document.querySelectorAll("input[data-map]").forEach(inp =>
+    inp.addEventListener("input", () => {
+      const row = MAP.find(m => m.id === inp.dataset.map);
+      const val = parseInt(inp.value);
+      if (isFinite(val)) row.midi = Math.max(0, Math.min(127, val));
+      refresh();
+    }));
+}
+
+document.querySelectorAll("button[data-shiftmap]").forEach(b =>
+  b.addEventListener("click", () => {
+    const d = parseInt(b.dataset.shiftmap);
+    if (MAP.some(m => m.midi + d < 0 || m.midi + d > 127)) return;
+    MAP.forEach(m => m.midi += d);
+    refresh();
+  }));
+
+$("resetMap").addEventListener("click", () => { MAP = BASE.map(m=>({...m, midi:m.def})); refresh(); });
+
+function autoFit(quiet){
+  if (!state){ if(!quiet) say($("msgMap"), "No data loaded.", "err"); return; }
+  let best = 0, bestHits = -1;
+  for (let s = -36; s <= 36; s++){
+    if (BASE.some(m => m.def + s < 0 || m.def + s > 127)) continue;
+    const set = new Set(BASE.map(m => m.def + s));
+    let hits = 0;
+    for (const n of state.notes) if (set.has(n.key)) hits++;
+    if (hits > bestHits || (hits === bestHits && Math.abs(s) < Math.abs(best))){ bestHits = hits; best = s; }
+  }
+  if (bestHits <= 0){ if(!quiet) say($("msgMap"), "Optimal shift evaluation failed.", "err"); return; }
+  MAP = BASE.map(m => ({...m, midi: m.def + best}));
+  if (!quiet) refresh();
+}
+$("autoFit").addEventListener("click", () => { autoFit(false); refresh(); });
+
+function collect(){
+  const bpm = Math.max(1, parseFloat($("mBpm").value) || 120);
+  const offset = parseFloat($("mOffset").value) || 0;
+  const scale = Math.max(0.001, parseFloat($("mScale").value) || 1);
+  const tpq = Math.max(1, parseInt($("mPPQ").value) || state.tpq);
+  const useMap = $("tsMap").checked && !$("tsMap").disabled;
+  const clock = makeClock(state, bpm, useMap, tpq);
+  const idx = byMidi();
+  const events = []; let skipped = 0;
+  for (const n of state.notes){
+    const entry = idx[n.key];
+    if (!entry){ skipped++; continue; }
+    events.push({time: clock(n.tick) * scale + offset, entry, noteIndex: n.index});
+  }
+  events.sort((a,b)=>a.time-b.time);
+  return {events, skipped, bpm, offset, scale, tpq, useMap, clock};
+}
+
+const fmt = ms => {
+  const s = Math.max(0, ms) / 1000;
+  return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}.${String(Math.floor(Math.abs(ms)%1000)).padStart(3,"0")}`;
+};
+
+function refresh(){
+  if (!state){ drawMap(); return; }
+  const {events, skipped, bpm, tpq, useMap, clock, scale, offset} = collect();
+  const fallback = parseInt($("mFallback").value) || 1;
+  const {objs, conflicts} = buildObjects(events, $("optMerge").checked, fallback);
+
+  const rawCounts = {};
+  for (const n of state.notes) rawCounts[n.key] = (rawCounts[n.key]||0)+1;
+  drawMap(rawCounts);
+
+  const lastTick = state.notes[state.notes.length-1].tick;
+  const D = [
+    `Format: ${state.preMs ? "Text/MS" : "MIDI Format " + state.format}`,
+    `Total Notes: ${state.notes.length}`,
+    `Timing: ${useMap ? "Map" : "Fixed BPM (" + bpm + ")"}`,
+    `End Time: ${fmt(clock(lastTick)*scale + offset)}`
+  ];
+  $("diag").innerHTML = D.join(" | ");
+
+  const mapped = new Set(MAP.map(m=>m.midi));
+  const pitches = Object.keys(rawCounts).map(Number).sort((a,b)=>a-b);
+  $("chips").innerHTML = pitches.map(p =>
+    `<span class="chip ${mapped.has(p)?"used":"free"}">${sci(p)} (${rawCounts[p]})</span>`).join("");
+  $("diagCard").style.display = "block";
+
+  lastConflicts = conflicts;
+  if (conflicts.length){
+    $("conflictTable").innerHTML = conflicts.map(c => {
+      const cells = c.slots.map(s => `<span class="sndchip">${SETNAME[s.normalSet]}</span>`).join(" ");
+      return `<tr><td class="ts">${fmt(c.time)}</td><td class="num">${c.time}</td><td>${cells}</td></tr>`;
+    }).join("");
+    $("conflictCard").style.display = "block";
+  } else {
+    $("conflictCard").style.display = "none";
+  }
+
+  const times = events.map(e=>e.time);
+  const min = Math.min(0, ...times, 0), max = Math.max(1, ...times);
+  const span = Math.max(1, max - min);
+  $("roll").innerHTML = MAP.map(m => {
+    const mine = events.filter(e => e.entry.midi === m.midi);
+    const dots = mine.map(e => `<i class="dot" style="left:${((e.time-min)/span*100).toFixed(3)}%"></i>`).join("");
+    return `<div class="lane ${mine.length?"":"unused"}">
+      <div class="name">${sci(m.midi)} (${mine.length})</div>
+      <div class="track">${dots}</div></div>`;
+  }).join("");
+
+  $("sNotes").textContent = events.length;
+  $("sObjs").textContent = objs.length;
+  $("sBpm").textContent = Math.round(bpm*100)/100;
+  $("sLen").textContent = fmt(max).split(".")[0];
+  $("rollCard").style.display = "block";
+
+  if (!events.length) say($("msg2"), "Zero mapped events generated.", "err");
+  else if (skipped) say($("msg2"), `Omitted ${skipped} unmapped notes.`, "warn");
+  else clear($("msg2"));
+
+  updateFallbackOptions(events);
+  drawReadback();
+}
+
+["mBpm","mOffset","mPPQ","mScale","optMerge","tsMap","tsFixed","mFallback","optStagger","mIndex"].forEach(id =>
+  $(id).addEventListener("input", () => { if (state) refresh(); }));
+
+$("markMidi").addEventListener("click", () => {
+  if (!state || state.preMs) return;
+  const {events} = collect();
+  const {conflicted, stacks} = flagNotes(events);
+  const idx = byMidi();
+  const conflictCh = Math.max(1, Math.min(16, parseInt($("chConflict").value) || 2)) - 1;
+  const unmappedCh = Math.max(1, Math.min(16, parseInt($("chUnmapped").value) || 3)) - 1;
+
+  const bytes = writeMidi(state, n => {
+    if (!idx[n.key]) return unmappedCh;
+    return conflicted.has(n.index) ? conflictCh : 0;
+  });
+
+  const url = URL.createObjectURL(new Blob([bytes], {type:"audio/midi"}));
+  const a = document.createElement("a");
+  a.href = url; a.download = "marked.mid"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+});
+
+$("copyConflicts").addEventListener("click", async () => {
+  const txt = lastConflicts.map(c => `${fmt(c.time)} (${c.time} ms)`).join("\n");
+  try { await navigator.clipboard.writeText(txt); $("copyHint").textContent = "Copied."; }
+  catch { $("copyHint").textContent = "Clipboard access denied."; }
+});
+
+function currentLines(){
+  const {events} = collect();
+  const {objs, conflicts} = buildObjects(events, $("optMerge").checked, parseInt($("mFallback").value) || 1);
+  if ($("optStagger").checked){
+    let prev = null, run = 0;
+    for (const o of objs){
+      if (o.time === prev) o.time += ++run;
+      else { prev = o.time; run = 0; }
+    }
+  }
+  const index = Math.max(0, parseInt($("mIndex").value) || 0);
+  return {text: writeLines(objs, index), objs, conflicts, index};
+}
+
+function updateFallbackOptions(events){
+  const used = new Set();
+  for (const e of events) if (e.entry.bit === 0) used.add(e.entry.set);
+  const sel = $("mFallback");
+  const free = [1,2,3].filter(v => !used.has(v));
+  if (used.has(parseInt(sel.value)) && free.length && !sel.dataset.touched)
+    sel.value = String(free[0]);
+
+  const cur = parseInt(sel.value);
+  if (!free.length)
+    say($("msgFallback"), "All sample sets in use.", "warn");
+  else if (used.has(cur))
+    say($("msgFallback"), "Selected fallback conflicts with mapped hitnormals.", "err");
+  else
+    clear($("msgFallback"));
+}
+
+function drawReadback(){
+  if (!state){ $("readbackCard").style.display = "none"; return; }
+  const {text, objs} = currentLines();
+  if (!objs.length){ $("readbackCard").style.display = "none"; return; }
+  const lines = text.split("\n");
+  const LIMIT = 100;
+  $("readbackTable").innerHTML = lines.slice(0, LIMIT).map((line, i) => {
+    const d = decodeLine(line);
+    const src = (objs[i].labels || []).join(", ");
+    return `<tr>
+      <td class="ts">${fmt(d.time)}</td>
+      <td class="num">${line}</td>
+      <td>${d.sounds.join("+")}</td>
+      <td>${src || "—"}</td></tr>`;
+  }).join("");
+  $("readbackHint").textContent = lines.length > LIMIT ? `Truncated display to ${LIMIT} lines.` : "";
+  $("readbackCard").style.display = "block";
+}
+
+$("go").addEventListener("click", async () => {
+  const {text, objs} = currentLines();
+  if (!objs.length) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    say($("msgOut"), `Copied ${objs.length} hit objects.`, "ok");
+  } catch {
+    $("raw").value = text; $("raw").hidden = false;
+    say($("msgOut"), "Copy manually from text field below.", "warn");
+  }
+});
+
+$("mFallback").addEventListener("change", () => { $("mFallback").dataset.touched = "1"; });
+
+$("showRaw").addEventListener("click", () => {
+  if (!state) return;
+  const {text} = currentLines();
+  $("raw").hidden = !$("raw").hidden;
+  $("raw").value = text;
+});
+
+drawMap();
+</script>
+</body>
+</html>
