@@ -65,7 +65,7 @@ const counterText = document.getElementById("counter");
 let currentFile = null;
 let busy = false;
 
-// Conversion counter, served by functions/icantplay3mod/api/count.js. Stays hidden if the endpoint isn't there.
+// Conversion counter, served by src/worker.js in the site repo. Stays hidden if the endpoint isn't there.
 function updateCounter(request) {
   request
     .then((res) => (res.ok ? res.json() : null))
