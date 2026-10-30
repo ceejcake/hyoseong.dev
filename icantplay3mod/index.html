@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>osu! High Gamma Skin</title>
+<style>
+  body { font-family: sans-serif; max-width: 640px; margin: 2em auto; padding: 0 16px; line-height: 1.5; }
+  input[type=range] { width: 100%; }
+</style>
+</head>
+<body>
+<h1>osu! high gamma skin converter</h1>
+<p>
+  Play with your display gamma maxed so you can read high AR, but keep the rest of the skin looking normal.
+  This darkens the HUD, cursor, judgements, spinner and pause screens to cancel out the gamma boost.
+  Hit circles, approach circles, numbers, sliders and follow points are left untouched so the gamma still brightens them.
+</p>
+<p>Everything runs in your browser. Your skin is never uploaded anywhere.</p>
+<p id="counter" hidden></p>
+
+<p>
+  <label for="gamma">Strength: <b id="gammaValue">2.2</b></label><br>
+  <input type="range" id="gamma" min="1" max="3" step="0.1" value="2.2">
+  <small>Higher = darker. 1.0 = off. 2.8 matches NVIDIA's gamma slider at max. Try a couple and keep the one that looks normal in-game.</small>
+</p>
+
+<p>
+  <label><input type="checkbox" id="triple"> Triple stack</label><br>
+  <small>Puts a ring on every hit circle number so stacked notes stay readable, like TripleStackUI.</small>
+</p>
+
+<p>
+  <label for="file">Skin (.osk):</label><br>
+  <input type="file" id="file" accept=".osk,.zip">
+</p>
+
+<p><button id="again" hidden>Download again with these settings</button></p>
+<p id="status"></p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.11/pako.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/upng-js/2.1.0/UPNG.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// Read at high AR, so these keep their original brightness.
+const KEEP = ["hitcircle*", "approachcircle*", "sliderstartcircle*", "sliderendcircle*",
+  "reversearrow*", "sliderb*", "sliderfollowcircle*", "sliderscorepoint*", "followpoint*"];
+
+// osu!standard gameplay elements that get darkened.
+const DARKEN = ["cursor*", "scorebar-*", "hit0*", "hit50*", "hit100*", "hit300*", "sliderpoint*",
+  "particle*", "lighting*", "comboburst*", "spinner-*", "inputoverlay-*", "count1*", "count2*",
+  "count3*", "go.*", "go@2x.*", "ready*", "play-skip*", "play-unranked*", "play-warningarrow*",
+  "multi-skipped*", "section-*", "arrow-pause*", "arrow-warning*", "pause-*", "fail-background*"];
+
+// Triple stack: numbers are drawn on a canvas this size (SD pixels) with the ring on top,
+// and HitCircleOverlap is set to the same value so multi-digit numbers sit on one spot.
+const STACK_SIZE = 160;
+
+const gammaInput = document.getElementById("gamma");
+const tripleInput = document.getElementById("triple");
+const fileInput = document.getElementById("file");
+const againButton = document.getElementById("again");
+const statusText = document.getElementById("status");
+const counterText = document.getElementById("counter");
+let currentFile = null;
+let busy = false;
+
+// Conversion counter, served by functions/icantplay3mod/api/count.js. Stays hidden if the endpoint isn't there.
+function updateCounter(request) {
+  request
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      if (!data || typeof data.count !== "number") return;
+      counterText.textContent = data.count.toLocaleString() + (data.count === 1 ? " skin" : " skins") + " converted so far";
+      counterText.hidden = false;
+    })
+    .catch(() => {});
+}
+updateCounter(fetch("/icantplay3mod/api/count"));
+
+gammaInput.addEventListener("input", () => {
+  document.getElementById("gammaValue").textContent = Number(gammaInput.value) <= 1 ? "off" : Number(gammaInput.value).toFixed(1);
+});
+fileInput.addEventListener("change", () => {
+  currentFile = fileInput.files[0] || null;
+  if (currentFile) run();
+});
+againButton.addEventListener("click", run);
+
+function globToRegex(glob) {
+  return new RegExp("^" + glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
+}
+
+function iniValue(ini, key, fallback) {
+  const m = ini.match(new RegExp("^[ \\t]*" + key + "[ \\t]*:[ \\t]*(.*?)[ \\t\\r]*$", "mi"));
+  return m && m[1] ? m[1].replace(/\\/g, "/").toLowerCase() : fallback;
+}
+
+function makeClassifier(ini) {
+  // Number fonts can live in subfolders, so their prefixes come from skin.ini.
+  const hitPrefix = iniValue(ini, "HitCirclePrefix", "default");
+  const keep = KEEP.concat([hitPrefix + "-*"]).map(globToRegex);
+  const darken = DARKEN.concat([
+    iniValue(ini, "ScorePrefix", "score") + "-*",
+    iniValue(ini, "ComboPrefix", "score") + "-*",
+  ]).map(globToRegex);
+  return (path) => {
+    const p = path.toLowerCase();
+    if (!/\.(png|jpe?g)$/.test(p)) return null;
+    if (keep.some((r) => r.test(p))) return "keep";
+    if (darken.some((r) => r.test(p))) return "darken";
+    return null;
+  };
+}
+
+function makeLut(gamma) {
+  const lut = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) lut[i] = Math.round(255 * Math.pow(i / 255, gamma));
+  return lut;
+}
+
+function applyLut(rgba, lut) {
+  for (let i = 0; i < rgba.length; i += 4) {
+    rgba[i] = lut[rgba[i]];
+    rgba[i + 1] = lut[rgba[i + 1]];
+    rgba[i + 2] = lut[rgba[i + 2]];
+  }
+}
+
+// Decoded with UPNG rather than a canvas, which would premultiply alpha and shift faint glow pixels.
+function decodePng(bytes) {
+  const img = UPNG.decode(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  return { width: img.width, height: img.height, rgba: new Uint8Array(UPNG.toRGBA8(img)[0]) };
+}
+
+function encodePng(img) {
+  // forbidPlte: UPNG's 1-bit palette output for near-empty images isn't readable by every decoder.
+  return new Uint8Array(UPNG.encode([img.rgba.buffer], img.width, img.height, 0, [], true));
+}
+
+function darkenPng(bytes, lut) {
+  const img = decodePng(bytes);
+  applyLut(img.rgba, lut);
+  return encodePng(img);
+}
+
+async function darkenJpg(bytes, lut) {
+  const bitmap = await createImageBitmap(new Blob([bytes]), { colorSpaceConversion: "none" });
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0);
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  applyLut(data.data, lut);
+  ctx.putImageData(data, 0, 0);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+// Ring profile in units where the image radius is 64: clear centre, white band, thin dark edge, soft shadow.
+function ringSample(t) {
+  if (t < 49.85 || t >= 64) return [0, 0];
+  if (t < 51.5) return [255, 255];
+  if (t < 59) return [241 - ((t - 51.5) / 7.5) * 11, 255];
+  if (t < 60) return [80, 200];
+  return [145 + (t - 60) * 6, (115 * (64 - t)) / 4];
+}
+
+function makeRing(size) {
+  const rgba = new Uint8Array(size * size * 4);
+  const scale = 64 / (size / 2);
+  const ss = 4; // 4x4 supersampling for smooth edges
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let lum = 0, alpha = 0;
+      for (let sy = 0; sy < ss; sy++) {
+        for (let sx = 0; sx < ss; sx++) {
+          const t = Math.hypot(x + (sx + 0.5) / ss - size / 2, y + (sy + 0.5) / ss - size / 2) * scale;
+          const [v, a] = ringSample(t);
+          lum += v * a;
+          alpha += a;
+        }
+      }
+      const i = (y * size + x) * 4;
+      const v = alpha ? Math.round(lum / alpha) : 0;
+      rgba[i] = rgba[i + 1] = rgba[i + 2] = v;
+      rgba[i + 3] = Math.round(alpha / (ss * ss));
+    }
+  }
+  return { width: size, height: size, rgba };
+}
+
+// Straight-alpha "source over" of src onto dst, both the same size.
+function compositeOver(dst, src) {
+  const d = dst.rgba, s = src.rgba;
+  for (let i = 0; i < d.length; i += 4) {
+    const sa = s[i + 3] / 255;
+    if (!sa) continue;
+    const da = d[i + 3] / 255;
+    const oa = sa + da * (1 - sa);
+    for (let c = 0; c < 3; c++) d[i + c] = Math.round((s[i + c] * sa + d[i + c] * da * (1 - sa)) / oa);
+    d[i + 3] = Math.round(oa * 255);
+  }
+}
+
+// Centre img on a transparent size x size canvas, cropping anything that doesn't fit.
+function centerOn(img, size) {
+  const out = { width: size, height: size, rgba: new Uint8Array(size * size * 4) };
+  const ox = Math.floor((size - img.width) / 2), oy = Math.floor((size - img.height) / 2);
+  for (let y = 0; y < img.height; y++) {
+    const ty = y + oy;
+    if (ty < 0 || ty >= size) continue;
+    for (let x = 0; x < img.width; x++) {
+      const tx = x + ox;
+      if (tx < 0 || tx >= size) continue;
+      out.rgba.set(img.rgba.subarray((y * img.width + x) * 4, (y * img.width + x) * 4 + 4), (ty * size + tx) * 4);
+    }
+  }
+  return out;
+}
+
+// Halve an image (2x2 box filter in premultiplied space), for skins that only ship @2x numbers.
+function halve(img) {
+  const w = Math.max(1, img.width >> 1), h = Math.max(1, img.height >> 1);
+  const out = { width: w, height: h, rgba: new Uint8Array(w * h * 4) };
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const sx = Math.min(img.width - 1, x * 2 + dx), sy = Math.min(img.height - 1, y * 2 + dy);
+        const i = (sy * img.width + sx) * 4, pa = img.rgba[i + 3];
+        r += img.rgba[i] * pa; g += img.rgba[i + 1] * pa; b += img.rgba[i + 2] * pa; a += pa;
+      }
+      const o = (y * w + x) * 4;
+      if (a) { out.rgba[o] = Math.round(r / a); out.rgba[o + 1] = Math.round(g / a); out.rgba[o + 2] = Math.round(b / a); }
+      out.rgba[o + 3] = Math.round(a / 4);
+    }
+  }
+  return out;
+}
+
+function setHitCircleOverlap(ini, value) {
+  const nl = ini.includes("\r\n") ? "\r\n" : "\n";
+  let text = ini.replace(/^[ \t]*HitCircleOverlap[ \t]*:.*(\r?\n|$)/gmi, "");
+  const line = "HitCircleOverlap: " + value;
+  if (/^[ \t]*\[Fonts\][ \t]*\r?$/mi.test(text)) {
+    return text.replace(/^([ \t]*\[Fonts\][ \t]*)(\r?)$/mi, (_, header, cr) => header + nl + line + cr);
+  }
+  return text + (text === "" || text.endsWith("\n") ? "" : nl) + "[Fonts]" + nl + line + nl;
+}
+
+// files: Map of zip path -> data. Rewrites hitcircleoverlay and the number images in place.
+function tripleStack(files, root, ini) {
+  const byLower = new Map([...files.keys()].map((k) => [k.toLowerCase(), k]));
+  const find = (p) => byLower.get((root + p).toLowerCase());
+  const put = (existing, p, data) => files.set(existing || root + p, data);
+  const hitPrefix = iniValue(ini, "HitCirclePrefix", "default");
+
+  put(find("hitcircleoverlay.png"), "hitcircleoverlay.png", encodePng(makeRing(128)));
+  put(find("hitcircleoverlay@2x.png"), "hitcircleoverlay@2x.png", encodePng(makeRing(256)));
+
+  const ring = makeRing(STACK_SIZE), ring2x = makeRing(STACK_SIZE * 2);
+  let numbers = 0;
+  for (let n = 0; n <= 9; n++) {
+    const sdName = find(hitPrefix + "-" + n + ".png"), hdName = find(hitPrefix + "-" + n + "@2x.png");
+    if (!sdName && !hdName) continue;
+    const hd = hdName ? decodePng(files.get(hdName)) : null;
+    const sd = sdName ? decodePng(files.get(sdName)) : halve(hd);
+    const stacked = centerOn(sd, STACK_SIZE);
+    compositeOver(stacked, ring);
+    put(sdName, hitPrefix + "-" + n + ".png", encodePng(stacked));
+    if (hd) {
+      const stacked2x = centerOn(hd, STACK_SIZE * 2);
+      compositeOver(stacked2x, ring2x);
+      files.set(hdName, encodePng(stacked2x));
+    }
+    numbers++;
+  }
+  return numbers;
+}
+
+async function convert(file, gamma, triple, onProgress) {
+  const zip = await JSZip.loadAsync(file);
+  const iniEntry = Object.values(zip.files).find((f) => !f.dir && /(^|\/)skin\.ini$/i.test(f.name));
+  // Some .osk files wrap everything in one folder; treat the folder holding skin.ini as the skin root.
+  const root = iniEntry ? iniEntry.name.slice(0, iniEntry.name.length - "skin.ini".length) : "";
+  const ini = iniEntry ? (await iniEntry.async("string")).replace(/^﻿/, "") : "";
+  const classify = makeClassifier(ini);
+  const lut = makeLut(gamma);
+  const tags = [];
+  if (gamma > 1) tags.push("hi-gamma " + gamma.toFixed(1));
+  if (triple) tags.push("3xStack");
+  const suffix = tags.map((t) => " [" + t + "]").join("");
+
+  const entries = Object.values(zip.files).filter((f) => !f.dir);
+  const files = new Map();
+  const dates = new Map();
+  for (const entry of entries) {
+    files.set(entry.name, await entry.async("uint8array"));
+    dates.set(entry.name, entry.date);
+  }
+
+  const toDarken = gamma > 1
+    ? entries.filter((f) => f.name.startsWith(root) && classify(f.name.slice(root.length)) === "darken")
+    : [];
+  let done = 0;
+  for (const entry of toDarken) {
+    try {
+      const data = files.get(entry.name);
+      files.set(entry.name, /\.png$/i.test(entry.name) ? darkenPng(data, lut) : await darkenJpg(data, lut));
+    } catch (err) {
+      console.warn("Skipped " + entry.name, err);
+    }
+    onProgress("Darkening " + ++done + " / " + toDarken.length + "...");
+  }
+
+  let numbers = 0;
+  if (triple) {
+    onProgress("Triple stacking...");
+    numbers = tripleStack(files, root, ini);
+  }
+
+  let newIni = ini.replace(/^([ \t]*Name[ \t]*:[ \t]*)(.*?)[ \t]*(\r?)$/mi, (_, k, v, cr) => k + v + suffix + cr);
+  if (triple) newIni = setHitCircleOverlap(newIni, STACK_SIZE);
+  if (iniEntry || triple) files.set(iniEntry ? iniEntry.name : "skin.ini", newIni);
+
+  const out = new JSZip();
+  for (const [name, data] of files) out.file(name, data, dates.has(name) ? { date: dates.get(name) } : {});
+  const blob = await out.generateAsync({ type: "blob", compression: "DEFLATE" });
+  return { blob, name: file.name.replace(/\.(osk|zip)$/i, "") + suffix + ".osk", darkened: toDarken.length, numbers };
+}
+
+async function run() {
+  if (!currentFile || busy) return;
+  const gamma = Number(gammaInput.value);
+  const triple = tripleInput.checked;
+  if (gamma <= 1 && !triple) {
+    statusText.textContent = "Nothing to do: raise the strength above 1.0 or tick triple stack.";
+    return;
+  }
+  busy = true;
+  againButton.disabled = true;
+  try {
+    statusText.textContent = "Reading skin...";
+    const result = await convert(currentFile, gamma, triple, (msg) => { statusText.textContent = msg; });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(result.blob);
+    link.download = result.name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+    const parts = [];
+    if (gamma > 1) parts.push("darkened " + result.darkened + " images");
+    if (triple) {
+      parts.push(result.numbers
+        ? "triple stacked " + result.numbers + " hit circle numbers"
+        : "found no hit circle number images to triple stack (the skin uses osu!'s default numbers)");
+    }
+    statusText.textContent = "Done: " + parts.join(", ") + ". Downloaded " + result.name +
+      ". Open it with osu! running to import it.";
+    againButton.hidden = false;
+    updateCounter(fetch("/icantplay3mod/api/count", { method: "POST" }));
+  } catch (err) {
+    console.error(err);
+    statusText.textContent = "Something went wrong: " + err.message + ". Is this a valid .osk file?";
+  } finally {
+    busy = false;
+    againButton.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
