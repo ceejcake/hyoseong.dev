@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>osu! map viewer</title>
+  <meta name="description" content="Paste an osu! beatmap link and scrub through its patterns with the song.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ff66aa'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='white' stroke-width='2.5'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+  <script type="module" src="js/app.js"></script>
+  <script>
+    // Fallback for when js/app.js can't run (most often: index.html opened straight from disk).
+    // Without it the form would submit natively and just reload the page.
+    (function () {
+      var fromDisk = location.protocol === 'file:';
+      var msg = fromDisk
+        ? "This page was opened straight from a file, so the browser blocks its scripts. Run start.bat (next to this folder) and use the page it opens, or open the site from hyoseong.dev."
+        : "The viewer's scripts failed to load. Try reloading the page.";
+      function fail() {
+        var el = document.getElementById('landing-status');
+        if (el) { el.textContent = msg; el.classList.add('error'); }
+      }
+      function booted() { return !!window.omvBooted; }
+      document.addEventListener('submit', function (e) { if (!booted()) { e.preventDefault(); fail(); } });
+      window.addEventListener('dragover', function (e) { if (!booted()) e.preventDefault(); });
+      window.addEventListener('drop', function (e) { if (!booted()) { e.preventDefault(); fail(); } });
+      document.addEventListener('change', function (e) { if (!booted() && e.target.type === 'file') fail(); });
+      window.addEventListener('load', function () { if (!booted()) fail(); });
+    })();
+  </script>
+</head>
+<body>
+  <!-- Landing -->
+  <main id="landing" class="landing">
+    <div class="landing-inner">
+      <h1>osu! map viewer</h1>
+
+      <form id="load-form" class="load-form" autocomplete="off">
+        <input id="map-input" type="text" spellcheck="false" placeholder="Beatmap link or ID" aria-label="Beatmap link or ID">
+        <button type="submit">Load</button>
+      </form>
+      <div class="alt-row">
+        <label class="btn">Open .osz<input id="osz-input" type="file" accept=".osz,.zip" hidden></label>
+        <label class="btn">Open folder<input id="folder-input" type="file" webkitdirectory hidden></label>
+      </div>
+      <p id="landing-status" class="status" role="status"></p>
+
+      <section id="recent" class="recent" hidden>
+        <h2>Recent</h2>
+        <ul id="recent-list"></ul>
+      </section>
+    </div>
+  </main>
+
+  <!-- Viewer -->
+  <div id="viewer" class="viewer" hidden>
+    <div id="stage" class="stage">
+      <div id="bg" class="bg"></div>
+      <div id="dim" class="dim"></div>
+      <canvas id="playfield"></canvas>
+
+      <header class="topbar">
+        <button id="back-btn" class="icon-btn" title="Load another map" aria-label="Load another map">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="map-title">
+          <div id="title" class="t1"></div>
+          <div class="t2"><span id="mapper"></span></div>
+        </div>
+        <select id="diff-select" class="diff-select" aria-label="Difficulty"></select>
+        <div id="stats" class="stats"></div>
+      </header>
+      <div id="paused-hint" class="paused-hint">Space to play</div>
+    </div>
+
+    <div class="dock">
+      <canvas id="strip" class="strip" title="Drag to scrub · Ctrl+wheel to zoom"></canvas>
+      <div class="controls">
+        <button id="play-btn" class="play-btn" aria-label="Play">
+          <svg class="i-play" viewBox="0 0 24 24" width="20" height="20"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24" width="20" height="20"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>
+        </button>
+        <div class="time"><span id="time-cur">00:00:000</span><span class="sep">/</span><span id="time-total">00:00</span></div>
+        <canvas id="overview" class="overview"></canvas>
+        <div id="live" class="live"></div>
+        <div class="ctrl-group">
+          <label class="mini" title="Beat snap divisor for arrow keys / wheel">
+            <span>snap</span>
+            <select id="snap-select">
+              <option value="1">1/1</option><option value="2">1/2</option><option value="3">1/3</option>
+              <option value="4" selected>1/4</option><option value="6">1/6</option><option value="8">1/8</option><option value="12">1/12</option><option value="16">1/16</option>
+            </select>
+          </label>
+          <label class="mini" title="Playback speed">
+            <span>speed</span>
+            <select id="speed-select">
+              <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option>
+              <option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option>
+            </select>
+          </label>
+          <button id="mod-hr" class="mod" title="Hard Rock (flips the map, CS/AR up)">HR</button>
+          <button id="mod-ez" class="mod" title="Easy (CS/AR down)">EZ</button>
+          <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+          <button id="help-btn" class="icon-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="settings" class="popover" hidden>
+      <h3>Settings</h3>
+      <label class="row"><span>Music volume</span><input id="vol-music" type="range" min="0" max="1" step="0.01"></label>
+      <label class="row"><span>Hitsound volume</span><input id="vol-hs" type="range" min="0" max="1" step="0.01"></label>
+      <label class="row"><span>Background dim</span><input id="bg-dim" type="range" min="0" max="1" step="0.01"></label>
+      <label class="row"><span>Offset <small id="offset-val">0 ms</small></span><input id="offset" type="range" min="-150" max="150" step="1"></label>
+      <div class="checks">
+        <label><input id="opt-hitsounds" type="checkbox"> Hitsounds</label>
+        <label><input id="opt-pitch" type="checkbox"> Pitch with speed (nightcore)</label>
+        <label><input id="opt-fp" type="checkbox"> Follow points</label>
+        <label><input id="opt-hitanim" type="checkbox"> Hit fade-out</label>
+        <label><input id="opt-ticks" type="checkbox"> Slider ticks</label>
+        <label><input id="opt-bmcol" type="checkbox"> Beatmap combo colours</label>
+        <label><input id="opt-border" type="checkbox"> Playfield border</label>
+      </div>
+    </div>
+
+    <div id="help" class="popover help" hidden>
+      <h3>Shortcuts</h3>
+      <dl>
+        <dt>Space / K</dt><dd>Play / pause</dd>
+        <dt>← →</dt><dd>Step one snap tick</dd>
+        <dt>Shift + ← →</dt><dd>Jump 5 seconds</dd>
+        <dt>Ctrl + ← →</dt><dd>Previous / next object</dd>
+        <dt>J / L</dt><dd>Back / forward 10 seconds</dd>
+        <dt>Scroll</dt><dd>Move one bar</dd>
+        <dt>Shift + scroll</dt><dd>Step one snap tick</dd>
+        <dt>Ctrl + wheel on strip</dt><dd>Zoom rhythm strip</dd>
+        <dt>↑ ↓</dt><dd>Music volume</dd>
+        <dt>[ ]</dt><dd>Slower / faster</dd>
+        <dt>1 2 3 4 6 8</dt><dd>Beat snap 1/n (with Alt)</dd>
+        <dt>0–9</dt><dd>Jump to 0–90%</dd>
+        <dt>Home / End</dt><dd>Start / end</dd>
+        <dt>F</dt><dd>Fullscreen</dd>
+        <dt>M / H</dt><dd>Mute music / hitsounds</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div id="loading" class="loading" hidden>
+    <div class="loading-card">
+      <div id="loading-text">Loading…</div>
+      <div class="bar"><div id="loading-bar"></div></div>
+      <div id="loading-sub" class="sub"></div>
+    </div>
+  </div>
+
+  <div id="drop" class="drop" hidden><div>Drop an .osz to open it</div></div>
+  <div id="toast" class="toast" hidden></div>
+</body>
+</html>
