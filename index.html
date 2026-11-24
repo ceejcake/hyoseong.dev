@@ -1,1 +1,113 @@
-Wow
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caleb Whang</title>
+  <meta name="description" content="Caleb (Hyoseong) Whang, second-year Applied Math student at UCI. Projects and contact.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#000000">
+  <link rel="preload" href="/fonts/ibm-plex-mono-latin-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/home.css">
+  <script type="module" src="/js/banner.js"></script>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="banner" aria-hidden="true">
+        <div id="banner-effect" class="banner__effect"></div>
+      </div>
+      <div class="horizon" aria-hidden="true"></div>
+      <h1 class="hero__name">
+        Caleb
+        <span class="hero__nick">&ldquo;Hyoseong&rdquo;<span class="hero__korean" lang="ko">효성</span></span>
+        Whang
+      </h1>
+      <p class="hero__tagline">Second-year Applied Math @ UCI</p>
+    </header>
+
+    <!-- PLACEHOLDER: about section, design to come. -->
+    <section class="about" aria-labelledby="about-heading">
+      <h2 id="about-heading" class="section-title">About</h2>
+      <div class="placeholder about__body">
+        <p>About me goes here: a short intro, what I'm into, and what I'm looking for.</p>
+      </div>
+    </section>
+
+    <!-- PLACEHOLDER: project content (images, descriptions, tech, links) to come. -->
+    <section class="projects" aria-labelledby="projects-heading">
+      <h2 id="projects-heading" class="display-title">Projects</h2>
+      <div class="dash-line" aria-hidden="true"></div>
+
+      <div class="featured-grid">
+        <!-- Main project: gets the accent treatment. -->
+        <article class="tile tile--feature tile--main">
+          <p class="tile__badge">main project</p>
+          <!-- PLACEHOLDER: swap the dither field for a screenshot or demo. -->
+          <div class="tile__media" aria-hidden="true"></div>
+          <div class="tile__body">
+            <h3 class="tile__name">Guess the Build prediction model</h3>
+            <p class="tile__desc">A model that predicts the build. Description goes here.</p>
+            <ul class="tile__tags" aria-label="Tech used">
+              <li>Tech</li>
+              <li>Tech</li>
+              <li>Tech</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="tile tile--feature">
+          <!-- PLACEHOLDER: swap the dither field for a screenshot or demo. -->
+          <div class="tile__media" aria-hidden="true"></div>
+          <div class="tile__body">
+            <h3 class="tile__name">Anime face angle detector</h3>
+            <p class="tile__desc">Detects the angle of an anime-style face to help with drawing. Description goes here.</p>
+            <ul class="tile__tags" aria-label="Tech used">
+              <li>Tech</li>
+              <li>Tech</li>
+              <li>Tech</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+
+      <div class="dash-line" aria-hidden="true"></div>
+
+      <h2 class="sub-title">Other projects</h2>
+      <ul class="other-grid">
+        <li>
+          <a class="tile tile--link" href="/mapviewer/">
+            <span class="tile__media" aria-hidden="true"></span>
+            <span class="tile__body">
+              <span class="tile__name">osu! map viewer</span>
+              <span class="tile__desc">Paste a beatmap link and scrub through its patterns with the song.</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a class="tile tile--link" href="/hitsounder/">
+            <span class="tile__media" aria-hidden="true"></span>
+            <span class="tile__body">
+              <span class="tile__name">MIDI to osu! hitsound map</span>
+              <span class="tile__desc">Load a MIDI file and convert its notes to osu! hitsounds.</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a class="tile tile--link" href="/icantplay3mod/">
+            <span class="tile__media" aria-hidden="true"></span>
+            <span class="tile__body">
+              <span class="tile__name">osu! high gamma skin converter</span>
+              <span class="tile__desc">Converts an osu! skin in the browser. Conversion counter on Cloudflare D1.</span>
+            </span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      <p>Banner made with <a href="https://uxpilot.ai/labs/ascii-art-generator" rel="noopener">UX Pilot</a>.</p>
+    </footer>
+  </main>
+</body>
+</html>
