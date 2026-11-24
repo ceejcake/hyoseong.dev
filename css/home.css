@@ -1,0 +1,409 @@
+/* Self-hosted fonts (SIL Open Font License, see /fonts/OFL.txt). */
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-latin-600.woff2") format("woff2");
+}
+
+/* Subset containing only the glyphs for 효성. */
+@font-face {
+  font-family: "IBM Plex Sans KR";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-sans-kr-500-hyoseong.woff2") format("woff2");
+}
+
+:root {
+  /* Dark by default. The page background matches the banner effect's backdrop,
+     which the effect hard-codes to pure black; purple carries in the surfaces and text. */
+  --bg: #000;
+  --surface: #0e0b1e;
+  --surface-hover: #161230;
+  --line: rgba(233, 228, 255, 0.09);
+  --line-strong: rgba(233, 228, 255, 0.18);
+  --text: #e9e4ff;
+  --muted: #a49fc4;
+  --faint: #6f6a92;
+  --accent: #a685ff;
+
+  --radius: 12px;
+  --content: 52rem;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --korean: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+
+  /* Soft glow, matched to the banner's lavender glyphs and purple bloom. */
+  --glow-strong: 0 0 6px rgba(200, 180, 255, 0.55), 0 0 18px rgba(140, 90, 255, 0.45), 0 0 42px rgba(110, 50, 230, 0.3);
+  --glow-soft: 0 0 5px rgba(200, 180, 255, 0.35), 0 0 16px rgba(130, 80, 255, 0.3);
+
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+.page {
+  width: 100%;
+  max-width: var(--content);
+  margin: 0 auto;
+  padding: 3rem 1rem 2rem;
+}
+
+/* Hero */
+.hero {
+  margin-bottom: 4.5rem;
+  text-align: center;
+}
+
+.banner {
+  position: relative;
+  z-index: 1;
+  /* Source image is 572 x 247. */
+  aspect-ratio: 572 / 247;
+  overflow: hidden;
+  /* Same as the page, so the banner blends in with no visible frame. */
+  background: var(--bg);
+}
+
+.banner__effect {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 600ms ease-out;
+}
+
+.banner.is-loaded .banner__effect { opacity: 1; }
+
+/* The effect may render its own canvas; keep it inside the frame. */
+.banner__effect > * { width: 100% !important; height: 100% !important; }
+
+/* Dashed "ground line" under the banner, wider than it and fading out at the ends. */
+.horizon {
+  height: 2px;
+  margin: 0.75rem 0 0;
+  /* Reach 12% past the banner on each side, but never past the viewport edge. */
+  margin-inline: max(-12%, (100% - 100vw) / 2);
+  background: repeating-linear-gradient(90deg, var(--text) 0 18px, transparent 18px 34px);
+  opacity: 0.45;
+  box-shadow: 0 0 10px rgba(140, 90, 255, 0.6);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+
+.hero__name {
+  margin: 2.25rem 0 0;
+  font-family: var(--mono);
+  font-size: clamp(1.5rem, 6vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-shadow: var(--glow-strong);
+}
+
+/* "Hyoseong" with its Korean spelling centered underneath. */
+.hero__nick {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.hero__korean {
+  margin-top: 0.15em;
+  color: var(--muted);
+  font-family: var(--korean);
+  font-size: 0.42em;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  /* Offset the trailing letter-spacing so the text stays centered. */
+  margin-right: -0.3em;
+  text-shadow: var(--glow-soft);
+}
+
+.hero__tagline {
+  margin: 1.5rem 0 0;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: clamp(0.9375rem, 2.6vw, 1.125rem);
+  text-shadow: var(--glow-soft);
+}
+
+/* Sections */
+.about { margin-bottom: 4rem; }
+
+/* Placeholder blocks: dashed outline marks content still to come. */
+.placeholder {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--faint);
+}
+
+.about__body {
+  padding: 1.5rem 1.25rem;
+}
+
+.about__body p { margin: 0; }
+
+/* Projects */
+.projects { margin-bottom: 4rem; }
+
+/* Big centered heading, glowing like the name. */
+.display-title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: var(--glow-strong);
+}
+
+.sub-title {
+  margin: 1.75rem 0 1.25rem;
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: var(--glow-soft);
+}
+
+/* Same dashed line as under the banner. */
+.dash-line {
+  height: 2px;
+  margin: 1.25rem 0 1.75rem;
+  margin-inline: max(-6%, (100% - 100vw) / 2);
+  background: repeating-linear-gradient(90deg, var(--text) 0 18px, transparent 18px 34px);
+  opacity: 0.45;
+  box-shadow: 0 0 10px rgba(140, 90, 255, 0.6);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+}
+
+.featured-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.other-grid {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Project tiles: terminal "windows" in the banner's ASCII style.
+   A faint square frame with bright corner brackets, and a dot-matrix
+   dither field standing in for the image until real media is added. */
+@property --corner {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 12px;
+}
+
+.tile {
+  --frame: rgba(233, 228, 255, 0.14);
+  --bracket: rgba(233, 228, 255, 0.55);
+  --dot: rgba(233, 228, 255, 0.32);
+  --corner: 12px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--frame);
+  color: inherit;
+  text-decoration: none;
+  transition: --corner 180ms ease-out;
+}
+
+/* Corner brackets: eight short strokes, one pair per corner. */
+.tile::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--bracket) 0 0) top left / var(--corner) 1px,
+    linear-gradient(var(--bracket) 0 0) top left / 1px var(--corner),
+    linear-gradient(var(--bracket) 0 0) top right / var(--corner) 1px,
+    linear-gradient(var(--bracket) 0 0) top right / 1px var(--corner),
+    linear-gradient(var(--bracket) 0 0) bottom left / var(--corner) 1px,
+    linear-gradient(var(--bracket) 0 0) bottom left / 1px var(--corner),
+    linear-gradient(var(--bracket) 0 0) bottom right / var(--corner) 1px,
+    linear-gradient(var(--bracket) 0 0) bottom right / 1px var(--corner);
+  background-repeat: no-repeat;
+}
+
+/* Dither field: a dot grid that thins out toward the top, like the banner. */
+.tile__media {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 7rem;
+  background:
+    radial-gradient(circle, var(--dot) 0 1px, transparent 1.5px) 0 0 / 7px 7px,
+    radial-gradient(circle, var(--dot) 0 1px, transparent 1.5px) 3.5px 3.5px / 7px 7px;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.55) 45%, rgba(0, 0, 0, 0.08) 100%);
+  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.55) 45%, rgba(0, 0, 0, 0.08) 100%);
+  transition: opacity 180ms ease-out;
+}
+
+.tile__body {
+  display: block;
+  padding: 0.875rem 0.25rem 0.125rem;
+}
+
+.tile__name {
+  display: block;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-shadow: var(--glow-soft);
+}
+
+.tile__desc {
+  margin: 0.375rem 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  /* Keep descriptions short enough to fit the square. */
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+/* Tech tags as bracketed terminal tokens: [ python ] */
+.tile__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.875rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+
+.tile__tags li::before { content: "[ "; color: var(--faint); }
+.tile__tags li::after { content: " ]"; color: var(--faint); }
+
+/* Featured tiles: larger type, taller dither. */
+.tile--feature { padding: 1rem; }
+.tile--feature .tile__media { min-height: 10rem; }
+.tile--feature .tile__name { font-size: 1.25rem; }
+
+/* Main project: bright brackets, a denser glowing field tinted with the
+   banner's purple, and its label set into the top edge of the frame. */
+.tile--main {
+  --frame: rgba(166, 133, 255, 0.4);
+  --bracket: var(--text);
+  --dot: rgba(233, 228, 255, 0.6);
+  --corner: 18px;
+  box-shadow: 0 0 32px rgba(120, 60, 255, 0.18), inset 0 0 40px rgba(64, 11, 117, 0.35);
+}
+
+.tile--main .tile__media {
+  background:
+    radial-gradient(circle, var(--dot) 0 1.1px, transparent 1.6px) 0 0 / 6px 6px,
+    radial-gradient(circle, var(--dot) 0 1.1px, transparent 1.6px) 3px 3px / 6px 6px,
+    radial-gradient(60% 80% at 50% 100%, rgba(120, 60, 255, 0.45), transparent 70%);
+  filter: drop-shadow(0 0 4px rgba(166, 133, 255, 0.6));
+}
+
+.tile__badge {
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  z-index: 1;
+  margin: 0;
+  padding: 0 0.5rem;
+  transform: translateY(-50%);
+  background: var(--bg);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-shadow: var(--glow-soft);
+}
+
+/* Linked tiles answer the pointer: brackets reach further, dots brighten. */
+.tile--link:hover {
+  --corner: 22px;
+  --bracket: var(--text);
+}
+
+.tile--link .tile__media { opacity: 0.85; }
+.tile--link:hover .tile__media { opacity: 1; }
+
+.tile--link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Phones: one per row, tiles size to their content.
+   Tablets: other projects go two per row.
+   Desktop: two featured squares side by side, three "other" squares per row. */
+@media (min-width: 34rem) {
+  .other-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 50rem) {
+  .featured-grid { grid-template-columns: 1fr 1fr; }
+  /* Square at minimum; a tile grows taller rather than letting text spill out. */
+  .tile--feature { aspect-ratio: 1 / 1; }
+  /* Fixed share for the image so both featured tiles line up. */
+  .tile--feature .tile__media { flex: 0 0 50%; min-height: 0; }
+}
+
+@media (min-width: 54rem) {
+  .other-grid { grid-template-columns: repeat(3, 1fr); }
+  .other-grid li { aspect-ratio: 1 / 1; }
+  /* Same image height across a row, whatever the text length. */
+  .other-grid .tile__media { flex: 0 0 42%; min-height: 0; }
+}
+
+/* Footer */
+.footer {
+  margin-top: 4rem;
+  color: var(--faint);
+  font-size: 0.8125rem;
+}
+
+.footer a { color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .banner__effect, .tile, .tile__media { transition: none; }
+}
