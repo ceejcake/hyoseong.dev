@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slider gallery</title>
+  <meta name="description" content="Browse unique osu! slider shapes from ranked and tournament maps, filtered by style, rhythm, anchors and shape.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#000000">
+  <link rel="preload" href="/fonts/ibm-plex-sans-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="sliders.json" as="fetch" type="application/json" crossorigin>
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="path"><a href="/">hyoseong.dev</a>/slidergallery</p>
+      <h1 class="title">Slider gallery</h1>
+      <p class="meta" id="meta">Loading shapes&hellip;</p>
+      <p class="lede">Collection of sliders pulled from my maps folder, from the top difficulties of ranked maps and also a lot of graveyarded tournament maps. Contact for removal!!</p>
+    </header>
+
+    <div class="layout">
+      <aside class="filters" aria-labelledby="filters-heading">
+        <div class="filters__head">
+          <h2 id="filters-heading" class="filters__title">Filters</h2>
+          <button type="button" id="reset" class="text-button">Reset</button>
+        </div>
+
+        <label class="field">
+          <span class="field__label">Search</span>
+          <input type="search" id="q" class="input" placeholder="Song, artist, mapper, diff" autocomplete="off" spellcheck="false">
+        </label>
+
+        <div class="field">
+          <label class="field__label" for="sort">Sort by</label>
+          <div class="sort">
+            <select id="sort" class="input select">
+              <option value="rnd" selected>Random</option>
+              <option value="sc">Most interesting</option>
+              <option value="L">Length (px)</option>
+              <option value="du">Duration on screen</option>
+              <option value="size">Size (bounding box)</option>
+              <option value="na">Anchor count</option>
+              <option value="sv">Relative SV</option>
+              <option value="es">Absolute SV</option>
+              <option value="bt">Length in beats</option>
+              <option value="tt">Total curvature</option>
+              <option value="n">Most common shape</option>
+            </select>
+            <button type="button" id="dir" class="button dir" disabled>
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 3v9.5M4 8.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="visually-hidden">Sort direction: </span><span id="dir-label">Desc</span>
+            </button>
+          </div>
+        </div>
+
+        <fieldset class="field range">
+          <legend class="field__label">Length (px)</legend>
+          <input type="number" id="lmin" class="input" min="0" inputmode="numeric" placeholder="min" aria-label="Minimum length in pixels">
+          <span class="range__dash" aria-hidden="true">&ndash;</span>
+          <input type="number" id="lmax" class="input" min="0" inputmode="numeric" placeholder="max" aria-label="Maximum length in pixels">
+        </fieldset>
+
+        <fieldset class="field range">
+          <legend class="field__label">Size (px)</legend>
+          <input type="number" id="smin" class="input" min="0" inputmode="numeric" placeholder="min" aria-label="Minimum size in pixels">
+          <span class="range__dash" aria-hidden="true">&ndash;</span>
+          <input type="number" id="smax" class="input" min="0" inputmode="numeric" placeholder="max" aria-label="Maximum size in pixels">
+        </fieldset>
+
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="hidetum" checked> Hide tumour sliders</label>
+          <label class="check"><input type="checkbox" id="anch" checked> Show anchors</label>
+          <label class="check"><input type="checkbox" id="scale"> True scale (full playfield)</label>
+        </div>
+
+        <!-- Open from tablets up; js/app.js collapses it on phones so the sliders come sooner. -->
+        <details class="tag-filters" id="tag-filters" open>
+          <summary class="tag-filters__title">Tags <span class="tag-filters__active" id="tags-active"></span></summary>
+          <p class="hint">Click a tag once to require it, twice to exclude it, and a third time to clear it.</p>
+          <div id="taggroups"></div>
+        </details>
+      </aside>
+
+      <main class="results">
+        <h2 class="visually-hidden">Sliders</h2>
+        <div class="results__head">
+          <p class="results__count" id="count" aria-live="polite">Loading slider data&hellip;</p>
+          <p class="results__hint" id="results-hint">Click a timestamp to copy it, then paste it in the editor.</p>
+        </div>
+        <div class="grid" id="grid"></div>
+        <div class="empty" id="empty" hidden>
+          <p>No shapes match these filters.</p>
+          <button type="button" class="button" id="empty-reset">Reset filters</button>
+        </div>
+        <button type="button" class="more" id="more" hidden>Show more</button>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <p>Fan-made and unofficial, not affiliated with osu! or ppy. Sliders are drawn with the vv_idke_trail skin.</p>
+    </footer>
+  </div>
+
+  <!-- Announces timestamp copies to screen readers. -->
+  <p class="visually-hidden" id="announcer" aria-live="polite"></p>
+
+  <!-- Skin elements, drawn on every slider with <use>. -->
+  <svg width="0" height="0" class="skin-defs" aria-hidden="true">
+    <defs>
+      <symbol id="hc" viewBox="0 0 128 128"><image href="skin/hitcircle.png" width="128" height="128"/></symbol>
+      <symbol id="hco" viewBox="0 0 128 128"><image href="skin/hitcircleoverlay.png" width="128" height="128"/></symbol>
+      <symbol id="rev" viewBox="0 0 256 256"><image href="skin/reversearrow.png" width="256" height="256"/></symbol>
+    </defs>
+  </svg>
+</body>
+</html>

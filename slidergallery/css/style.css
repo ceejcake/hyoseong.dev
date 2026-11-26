@@ -1,0 +1,705 @@
+/* Slider gallery. Fonts, tokens and element defaults come from
+   /css/base.css, shared with the home page; the skin-colored sliders are the
+   only saturated thing on the page. */
+
+.skin-defs { position: absolute; }
+
+.page {
+  width: 100%;
+  max-width: 96rem;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 2rem;
+}
+
+/* Masthead */
+.masthead { margin-bottom: 2.5rem; }
+
+/* Where this page lives, like the paths in the home page's tool list. */
+.path {
+  margin: 0 0 1.75rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+
+.path a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--line-control);
+  transition: text-decoration-color 150ms ease-out;
+}
+
+.path a:hover { text-decoration-color: var(--accent); }
+
+/* The home page's section title: Plex Sans with a dashed ground line running out. */
+.title {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin: 0;
+  font-size: clamp(1.625rem, 4vw, 2.125rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.title::after {
+  content: "";
+  flex: 1 1 0;
+  min-width: 2rem;
+  height: 2px;
+  margin-top: 0.12em;
+  background: var(--dash);
+  opacity: 0.35;
+  -webkit-mask-image: linear-gradient(90deg, #000 55%, transparent);
+  mask-image: linear-gradient(90deg, #000 55%, transparent);
+}
+
+.meta {
+  min-height: 1.6em;
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lede {
+  max-width: 62ch;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+/* Layout: filters above the grid on phones, a sticky sidebar from tablets up. */
+.layout {
+  display: grid;
+  gap: 2.5rem;
+}
+
+/* Filters */
+.filters {
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.filters__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+.filters__title,
+.tag-filters__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.field {
+  display: grid;
+  gap: 0.375rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field__label {
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  height: 2.375rem;
+  padding: 0 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  font-size: 0.9375rem;
+  transition: border-color 150ms ease-out;
+}
+
+.input:hover { border-color: var(--muted); }
+
+.input::placeholder { color: var(--faint); opacity: 1; }
+
+input[type="number"].input {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+input[type="search"]::-webkit-search-cancel-button { filter: grayscale(1) brightness(1.4); }
+
+.select {
+  padding-right: 2.25rem;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23a49fc4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 0.75rem center / 14px;
+}
+
+.select option { background: var(--surface); color: var(--text); }
+
+.sort {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.range {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.5rem;
+}
+
+.range .field__label { grid-column: 1 / -1; margin-bottom: 0.375rem; }
+
+.range__dash { color: var(--faint); }
+
+/* Buttons: outlined, like the home page's frames. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 2.375rem;
+  padding: 0 0.875rem;
+  background: var(--bg);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.button:hover { border-color: var(--muted); background: var(--surface); }
+
+.button:disabled {
+  border-color: var(--line-strong);
+  background: var(--bg);
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
+.button svg { flex: none; transition: transform 200ms var(--ease-out); }
+
+.dir.is-asc svg { transform: rotate(180deg); }
+
+.text-button {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+  transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
+}
+
+.text-button:hover { color: var(--text); text-decoration-color: var(--accent); }
+
+.checks { display: grid; gap: 0.5rem; }
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: fit-content;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.check input {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  background: var(--bg) no-repeat center / 0.75rem;
+  border: 1px solid rgba(233, 228, 255, 0.5);
+  border-radius: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: background-color 150ms ease-out, border-color 150ms ease-out;
+}
+
+.check input:checked {
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.25 3.25L13 5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  border-color: var(--accent);
+}
+
+.check:hover input:not(:checked) { border-color: var(--text); }
+
+/* Tag filters */
+.tag-filters {
+  padding-top: 1.25rem;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.tag-filters summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.tag-filters summary::-webkit-details-marker { display: none; }
+
+.tag-filters summary::after {
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+}
+
+.tag-filters[open] summary::after { transform: rotate(180deg); }
+
+.tag-filters__active {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.hint {
+  margin: 0.375rem 0 1rem;
+  color: var(--faint);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.group + .group { margin-top: 0.875rem; }
+
+.group__name {
+  margin: 0 0 0.375rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Tri-state tag: neutral, required (accent), excluded (dashed and struck through).
+   No second hue: the skin-colored sliders stay the only saturated thing on the page. */
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: color 150ms ease-out, border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.chip:hover { color: var(--text); border-color: var(--line-control); }
+
+.chip__count {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip[data-state="require"] {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.chip[data-state="require"] .chip__count { color: var(--muted); }
+
+.chip[data-state="exclude"] {
+  border-style: dashed;
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+.chip[data-state="exclude"] .chip__name {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+/* Results */
+.results { min-width: 0; }
+
+/* Count on the left, the timestamp tip on the right; they stack on phones. */
+.results__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.results__hint {
+  margin: 0;
+  color: var(--faint);
+  font-size: 0.8125rem;
+}
+
+.results__count {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.results__count.is-error { color: var(--text); font-family: var(--sans); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 2.5rem 1.5rem;
+}
+
+/* One slider: a framed drawing with its details underneath, no card box. */
+.slider {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.slider__frame {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+}
+
+.slider__frame .playfield {
+  fill: none;
+  stroke: var(--line-control);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+}
+
+.slider__frame .anchor-line {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.4;
+  stroke-dasharray: 3 3;
+  opacity: 0.8;
+}
+
+/* Anchor colors follow the osu! editor: red anchors are hard corners. */
+.slider__frame .anchor { fill: #fff; stroke: #000; }
+.slider__frame .anchor--red { fill: #ff3b3b; }
+
+.slider__title {
+  margin: 0.875rem 0 0;
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.slider__sub {
+  margin: 0.125rem 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Star rating: data, so mono, with a drawn star in the icons' 1.5 stroke. */
+.stars {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stars svg { margin-left: 0.1875rem; vertical-align: -0.0625rem; }
+
+/* Measurements as a readout: labels above values, columns sized to the data. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin: 0.75rem 0 0;
+  padding: 0.625rem 0 0;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.stats div { min-width: 0; }
+
+.stats dt {
+  color: var(--faint);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+}
+
+.stats dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stats .unit { color: var(--muted); }
+
+/* Tags as a slash-separated list, like the home page's tech list. */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+/* A dot between tags, not the home page's slash: some tag names contain " / " themselves.
+   It sits after each tag, so a wrapped line never starts with a separator. */
+.tags li:not(:last-child)::after {
+  content: "·";
+  margin: 0 0.5rem;
+  color: var(--faint);
+}
+
+.tag {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+  transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
+}
+
+.tag:hover { color: var(--text); text-decoration-color: var(--accent); }
+
+.slider__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+}
+
+/* Timestamp: copies itself. The icon turns into a check while it's on the clipboard. */
+.ts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+.ts svg { flex: none; color: var(--faint); transition: color 150ms ease-out; }
+.ts .ts__done { display: none; }
+.ts:hover svg { color: var(--text); }
+.ts.is-copied, .ts.is-copied svg { color: var(--accent); }
+.ts.is-copied .ts__copy { display: none; }
+.ts.is-copied .ts__done { display: block; }
+
+.map-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  transition: color 150ms ease-out;
+}
+
+.map-link svg { flex: none; transition: transform 200ms var(--ease-out); }
+.map-link:hover { color: var(--text); }
+.map-link:hover svg { transform: translate(2px, -2px); }
+
+.similar {
+  margin-top: 0.625rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.similar summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  list-style: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+.similar summary::-webkit-details-marker { display: none; }
+
+/* Same chevron as the Tags summary, so the page has one disclosure style. */
+.similar summary::after,
+.tag-filters summary::after {
+  content: "";
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23a49fc4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+  transition: transform 200ms var(--ease-out);
+}
+
+.similar summary::after { width: 12px; height: 12px; }
+.similar[open] summary::after { transform: rotate(180deg); }
+.similar summary:hover { color: var(--text); }
+
+.similar ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0 0 0.75rem;
+  list-style: none;
+  border-left: 1px dashed var(--line-strong);
+}
+
+.similar li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.similar .similar__map {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.similar a { text-decoration-color: var(--line-control); }
+.similar a:hover { color: var(--text); text-decoration-color: var(--accent); }
+.similar .ts { flex: none; font-size: 0.75rem; }
+
+/* Loading: dashed outlines mark drawings still to come, as on the home page. */
+.slider--skeleton .slider__frame {
+  background: none;
+  border: 1px dashed var(--line-strong);
+}
+
+.slider--skeleton .skeleton-line {
+  height: 0.75rem;
+  margin-top: 0.875rem;
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.slider--skeleton .skeleton-line + .skeleton-line { width: 60%; margin-top: 0.5rem; }
+
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: 1rem;
+  padding: 2rem 1.5rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+
+.empty p { margin: 0; }
+
+.more {
+  display: block;
+  width: 100%;
+  margin-top: 2.5rem;
+  padding: 1rem;
+  background: none;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: color 150ms ease-out, border-color 150ms ease-out;
+}
+
+.more:hover { color: var(--text); border-color: var(--line-control); }
+
+/* Footer */
+.footer {
+  margin-top: 4rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed var(--line-strong);
+  color: var(--faint);
+  font-size: 0.8125rem;
+}
+
+.footer p { margin: 0; }
+
+/* Tablets and up: filters become a sticky sidebar with their own scroll. */
+@media (min-width: 52rem) {
+  .page { padding: 3rem 2rem 2rem; }
+
+  .layout {
+    grid-template-columns: 17rem minmax(0, 1fr);
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .filters {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    margin-top: -1.5rem;
+    padding: 1.5rem 0.75rem 1.5rem 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #2b2545 transparent;
+  }
+}
+
+@media (min-width: 90rem) {
+  .layout { grid-template-columns: 19rem minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}
